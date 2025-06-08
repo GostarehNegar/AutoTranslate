@@ -1,0 +1,61 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Net.Http;
+using System.Text.Json;
+
+
+namespace AutoTranslate
+{
+    public class Translator
+    {
+        private static readonly HttpClient client = new HttpClient();
+        private const string DeepSeekApiUrl = "https://api.deepseek.com/v1/chat/completions";
+        private const string ApiKey = "sk-3b8842c4b8de41b48ad350662886e849"; // Replace with your actual DeepSeek API key
+
+        public static async Task<string> TranslateEnglishToPersian(string englishText)
+        {
+            // Prepare the request payload
+            var requestData = new
+            {
+                model = "deepseek-chat",
+                messages = new[]
+                {
+                new
+                {
+                    role = "system",
+                    content = "You are a professional translator. Translate the following English text to Persian (Farsi). " +
+                              "Provide only the translation, no additional explanations or notes."
+                },
+                new
+                {
+                    role = "user",
+                    content = englishText
+                }
+            },
+                temperature = 0.3
+            };
+
+            string jsonPayload = JsonSerializer.Serialize(requestData);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            // Add authorization header
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {ApiKey}");
+
+            // Send the request
+            HttpResponseMessage response = await client.PostAsync(DeepSeekApiUrl, content);
+            response.EnsureSuccessStatusCode();
+
+            // Parse the response
+            string responseBody = await response.Content.ReadAsStringAsync();
+             JsonDocument document = JsonDocument.Parse(responseBody);
+            JsonElement root = document.RootElement;
+            string translatedText = root.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+
+            return translatedText.Trim();
+        }
+    }
+}

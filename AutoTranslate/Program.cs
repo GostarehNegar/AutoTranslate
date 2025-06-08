@@ -1,23 +1,48 @@
-﻿using Microsoft.Xrm.Sdk.Client;
+﻿using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Client;
 using System;
 using System.Linq;
 using System.ServiceModel.Description;
+using System.ServiceModel.Syndication;
+using System.Threading.Tasks;
 
 namespace AutoTranslate
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("Hello World!");
             var service = GetOrganizationServiceProxy("http://gncrm2019/Test/", "gnco\\hafezi","123@qwe");
             var sourceContext = new OrganizationServiceContext(service);
             var query = sourceContext.CreateQuery("gn_translationentry");
-            var items = query.Take(10).ToArray();
-            foreach(var item in items)
+            
+            var items = query
+                .Where(x => (int)x["gn_flag"] != 1)
+                .Take(10)
+                .ToArray();
+            foreach (var item in items)
             {
-                Console.WriteLine(item.GetAttributeValue<string>("gn_text"));
+                string Text=(item.GetAttributeValue<string>("gn_text"));
+                var Translation=await Translator.TranslateEnglishToPersian(Text);
+
+                item["gn_proposed"] = Translation;
+                item["gn_flag"] = 1;
+                var update = new Entity
+                {
+                    LogicalName = item.LogicalName,
+                    Id = item.Id,
+                    Attributes = item.Attributes,
+                };
+                service.Update(update);
+                
+                //sourceContext.UpdateObject(item);
+                //sourceContext.SaveChanges();
             }
+            //items[0]["gn_flag"] = 1;
+            //sourceContext.UpdateObject(items[0]);
+            //sourceContext.SaveChanges();
+            //service.Update(items[0]);
         }
         static OrganizationServiceProxy GetOrganizationServiceProxy(string crmUrl, string username, string password)
         {
